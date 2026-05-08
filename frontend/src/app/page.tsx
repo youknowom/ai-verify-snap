@@ -4,29 +4,42 @@ import { motion, useInView } from "framer-motion";
 import { ArrowRight, ShieldCheck, Cpu, Fingerprint, Upload, ScanLine, FileCheck, BarChart3, Users, Zap, Quote } from "lucide-react";
 import Link from "next/link";
 import { useRef, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+
+const AnimatedCounter = dynamic(
+    () => Promise.resolve(({ target, suffix = "" }: { target: number; suffix?: string }) => {
+        const [count, setCount] = useState(0);
+        const ref = useRef<HTMLSpanElement>(null);
+        const isInView = useInView(ref, { once: true });
+
+        useEffect(() => {
+            if (!isInView) return;
+
+            let startTime: number;
+            const duration = 2000;
+
+            const animate = (time: number) => {
+                if (!startTime) startTime = time;
+                const progress = Math.min((time - startTime) / duration, 1);
+                const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+                setCount(Math.floor(easeProgress * target));
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    setCount(target);
+                }
+            };
+
+            requestAnimationFrame(animate);
+        }, [target, isInView]);
+
+        return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+    }),
+    { ssr: false }
+);
 
 const ease = [0.16, 1, 0.3, 1];
-
-function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
-    const [count, setCount] = useState(0);
-    const ref = useRef<HTMLSpanElement>(null);
-    const isInView = useInView(ref, { once: true });
-
-    useEffect(() => {
-        if (!isInView) return;
-        let start = 0;
-        const duration = 2000;
-        const increment = target / (duration / 16);
-        const timer = setInterval(() => {
-            start += increment;
-            if (start >= target) { setCount(target); clearInterval(timer); }
-            else setCount(Math.floor(start));
-        }, 16);
-        return () => clearInterval(timer);
-    }, [isInView, target]);
-
-    return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
-}
 
 const stats = [
     { value: 12000, suffix: "+", label: "Images Analyzed", icon: BarChart3 },

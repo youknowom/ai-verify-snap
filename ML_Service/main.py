@@ -39,7 +39,7 @@ HF_ID2LABEL = {0: "Fake", 1: "Real"}
 using_custom_model = False
 
 ELA_MAX_DIM = 512
-ELA_QUALITY = 85
+ELA_QUALITY = 90  # Must match training quality for consistent ELA signatures
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -196,7 +196,7 @@ async def health_check():
 
 
 @app.post("/detect")
-async def detect_media(file: UploadFile = File(...), include_ela_image: bool = False):
+async def detect_media(file: UploadFile = File(...), include_ela_image: bool = True):
     if custom_model is None and hf_model is None:
         raise HTTPException(status_code=503, detail="No model is loaded. Check server logs.")
 
@@ -243,6 +243,11 @@ async def detect_media(file: UploadFile = File(...), include_ela_image: bool = F
 
         elapsed_ms = round((time.time() - start_time) * 1000, 1)
 
+        # Report which model produced the verdict
+        model_desc = ("AIVerifySnapModel (dual-stream RGB+ELA)"
+                      if using_custom_model
+                      else f"HuggingFace SigLIP ({HF_MODEL_NAME})")
+
         return {
             "filename": file.filename,
             "verdict": verdict,
@@ -250,6 +255,8 @@ async def detect_media(file: UploadFile = File(...), include_ela_image: bool = F
             "raw_output": scores,
             "ela": ela_payload,
             "processing_time_ms": elapsed_ms,
+            "model_name": model_desc,
+            "using_custom_model": using_custom_model,
         }
 
     except Exception as e:

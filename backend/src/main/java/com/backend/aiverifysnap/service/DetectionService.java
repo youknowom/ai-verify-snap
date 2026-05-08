@@ -45,7 +45,7 @@ public class DetectionService {
             DetectionRepository detectionRepository,
             UserRepository userRepository) {
         ExchangeStrategies largeBufferStrategies = ExchangeStrategies.builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(32 * 1024 * 1024))
                 .build();
         this.webClient = builder
                 .baseUrl(url)
@@ -56,7 +56,7 @@ public class DetectionService {
         this.userRepository = userRepository;
         this.objectMapper = new ObjectMapper();
         this.mlServiceUrl = url;
-        log.info("Configured ML service URL: {} (codec buffer: 16 MB)", this.mlServiceUrl);
+        log.info("Configured ML service URL: {} (codec buffer: 32 MB)", this.mlServiceUrl);
     }
 
     @SuppressWarnings("unchecked")
@@ -67,12 +67,12 @@ public class DetectionService {
         long startTime = System.currentTimeMillis();
 
         try {
-            String primaryPath = "/detect";
+            String primaryPath = "/detect?include_ela_image=true";
             log.debug("Calling ML service at {}{}", mlServiceUrl, primaryPath);
             Map<String, Object> response = callPredictEndpoint(primaryPath, bodyBuilder);
             if (response == null) {
                 // If we get here, try a trailing-slash variant as a fallback
-                String altPath = "/detect/";
+                String altPath = "/detect/?include_ela_image=true";
                 log.debug("Retrying ML service at {}{}", mlServiceUrl, altPath);
                 response = callPredictEndpoint(altPath, bodyBuilder);
             }
@@ -137,7 +137,8 @@ public class DetectionService {
         long processingMs = mlTime instanceof Number ? ((Number) mlTime).longValue() : elapsedMs;
         result.put("processing_time_ms", processingMs);
         result.put("elapsed_ms", elapsedMs);
-        result.put("model_status", "SigLIP Deepfake Detector (94.4% acc)");
+        result.put("model_status", mlResponse.getOrDefault("model_name",
+                "Deepfake Detector").toString());
         Map<String, Object> details = new HashMap<>();
         details.put("raw_output", rawOutput);
         Object elaData = mlResponse.get("ela");

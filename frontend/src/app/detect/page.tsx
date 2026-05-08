@@ -10,35 +10,9 @@ import Image from "next/image";
 import { detectionApi, DetectionResult } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
 
-const MAX_UPLOAD_DIM = 512;
-
-function resizeImageForUpload(file: File): Promise<File> {
-    return new Promise((resolve, reject) => {
-        const img = new window.Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-            URL.revokeObjectURL(url);
-            const { width, height } = img;
-            if (width <= MAX_UPLOAD_DIM && height <= MAX_UPLOAD_DIM) { resolve(file); return; }
-            let newW = width, newH = height;
-            if (width > height) { newW = MAX_UPLOAD_DIM; newH = Math.round((height / width) * MAX_UPLOAD_DIM); }
-            else { newH = MAX_UPLOAD_DIM; newW = Math.round((width / height) * MAX_UPLOAD_DIM); }
-            const canvas = document.createElement("canvas");
-            canvas.width = newW; canvas.height = newH;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) { resolve(file); return; }
-            ctx.drawImage(img, 0, 0, newW, newH);
-            const mimeType = file.type || "image/png";
-            const quality = mimeType === "image/jpeg" ? 0.95 : undefined;
-            canvas.toBlob((blob) => {
-                if (!blob) { resolve(file); return; }
-                resolve(new File([blob], file.name, { type: mimeType }));
-            }, mimeType, quality);
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image")); };
-        img.src = url;
-    });
-}
+// No client-side resizing — sending the original file preserves compression
+// artifacts and pixel-level details that are critical for deepfake detection.
+// The ML service handles its own resizing via torchvision transforms.
 
 interface BulkItem {
     file: File;
@@ -123,8 +97,7 @@ export default function DetectPage() {
         setDetectionResult(null);
         setErrorMessage(null);
         try {
-            const optimizedFile = await resizeImageForUpload(uploadedFile);
-            const result = await detectionApi.detectImage(optimizedFile);
+            const result = await detectionApi.detectImage(uploadedFile);
             setDetectionResult(result);
             setResultReady(true);
         } catch (error: unknown) {
@@ -148,8 +121,7 @@ export default function DetectPage() {
         for (let i = 0; i < bulkItems.length; i++) {
             setBulkItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: "analyzing" } : item));
             try {
-                const optimized = await resizeImageForUpload(bulkItems[i].file);
-                const result = await detectionApi.detectImage(optimized);
+                const result = await detectionApi.detectImage(bulkItems[i].file);
                 setBulkItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: "done", result } : item));
             } catch (err) {
                 const msg = err instanceof Error ? err.message : "Error";
