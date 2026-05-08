@@ -136,6 +136,9 @@ export default function DetectPage() {
     const elaImageUrl = detectionResult?.details?.ela_image_base64
         ? `data:image/png;base64,${detectionResult.details.ela_image_base64}` : null;
 
+    const heatmapImageUrl = detectionResult?.details?.ela_heatmap_base64
+        ? `data:image/png;base64,${detectionResult.details.ela_heatmap_base64}` : null;
+
     if (!mounted) {
         return (
             <div className="min-h-[calc(100vh-4rem)] max-w-[1120px] mx-auto px-6 py-10 flex flex-col items-center justify-center space-y-3">
@@ -166,7 +169,7 @@ export default function DetectPage() {
                     <div className="max-w-lg w-full text-center space-y-5">
                         <h1 className="text-heading-lg font-serif text-foreground">Detect Deepfakes</h1>
                         <p className="text-body text-muted-foreground text-balance">Upload an image to perform forensic analysis. Supported formats: JPG, PNG, WEBP.</p>
-                        <p className="text-caption text-muted-foreground">Powered by SigLIP Vision Transformer with ELA forensic analysis</p>
+                        <p className="text-caption text-muted-foreground">Dual-stream forensic analysis with Error Level Analysis</p>
                         <div className="card-elevated rounded-xl p-4">
                             <UploadDropzone onUpload={handleUpload} isUploading={false} />
                         </div>
@@ -251,7 +254,7 @@ export default function DetectPage() {
                         <Loader2 className="w-12 h-12 text-accent animate-spin relative" />
                     </div>
                     <h2 className="text-heading font-semibold text-foreground animate-pulse">Analyzing image using forensic AI...</h2>
-                    <p className="text-caption text-muted-foreground">Running ResNet classifier and ELA CNN analysis</p>
+                    <p className="text-caption text-muted-foreground">Running forensic analysis with ELA compression detection</p>
                 </motion.div>
             )}
 
@@ -280,13 +283,15 @@ export default function DetectPage() {
                                 )}
                                 {viewMode === "Heatmap" && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-                                        <Image src={imageUrl} alt="Heatmap" className="object-contain" fill />
-                                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/40 via-yellow-500/40 to-red-500/60 mix-blend-overlay filter blur-2xl p-10" />
+                                        {heatmapImageUrl ? (
+                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                            <img src={heatmapImageUrl} alt="Forensic Heatmap" className="object-contain w-full h-full" />
+                                        ) : <p className="text-muted-foreground text-sm">Heatmap data not available</p>}
                                     </div>
                                 )}
                             </div>
                             <p className="text-caption text-muted-foreground mt-3.5 text-center">
-                                {viewMode === "ELA" ? "Server-generated Error Level Analysis" : viewMode === "Heatmap" ? "Attention visualization (approximate)" : "Original uploaded image"}
+                                {viewMode === "ELA" ? "Server-generated Error Level Analysis" : viewMode === "Heatmap" ? "JET-colorized ELA forensic heatmap" : "Original uploaded image"}
                             </p>
                         </div>
                     </div>
@@ -326,7 +331,7 @@ export default function DetectPage() {
                                 <div className="card-elevated rounded-2xl p-5">
                                     <h3 className="text-heading font-semibold mb-1.5">Explainability</h3>
                                     <p className="text-caption text-muted-foreground mb-5">Comparing original vs. ELA analysis for forensic insight.</p>
-                                    <HeatmapViewer originalImage={imageUrl} heatmapImage={elaImageUrl || imageUrl} />
+                                    <HeatmapViewer originalImage={imageUrl} heatmapImage={heatmapImageUrl || elaImageUrl || imageUrl} />
                                 </div>
                             </>
                         )}

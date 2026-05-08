@@ -10,7 +10,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from torchvision import transforms
 
 from model import AIVerifySnapModel, AIVerifySnapModelV1
-from utils import generate_ela
+from utils import generate_ela, generate_ela_heatmap
 
 app = FastAPI(
     title="AIVerifySnap AI Service Layer",
@@ -225,6 +225,8 @@ async def detect_media(file: UploadFile = File(...), include_ela_image: bool = T
                 img_for_ela.thumbnail((ELA_MAX_DIM, ELA_MAX_DIM), Image.LANCZOS)
             ela_img = generate_ela(img_for_ela, quality=ELA_QUALITY)
 
+        heatmap_img = generate_ela_heatmap(ela_img)
+
         ela_array = np.array(ela_img, dtype=np.float32)
         ela_mean = float(np.mean(ela_array))
         ela_std = float(np.std(ela_array))
@@ -240,6 +242,10 @@ async def detect_media(file: UploadFile = File(...), include_ela_image: bool = T
             ela_buffer = io.BytesIO()
             ela_img.save(ela_buffer, format="PNG")
             ela_payload["image_base64"] = base64.b64encode(ela_buffer.getvalue()).decode("utf-8")
+
+            heatmap_buffer = io.BytesIO()
+            heatmap_img.save(heatmap_buffer, format="PNG")
+            ela_payload["heatmap_base64"] = base64.b64encode(heatmap_buffer.getvalue()).decode("utf-8")
 
         elapsed_ms = round((time.time() - start_time) * 1000, 1)
 

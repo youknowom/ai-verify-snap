@@ -148,6 +148,7 @@ public class DetectionService {
             details.put("ela_std", ela.get("std"));
             details.put("ela_max", ela.get("max"));
             details.put("ela_image_base64", ela.get("image_base64"));
+            details.put("ela_heatmap_base64", ela.get("heatmap_base64"));
         }
         result.put("details", details);
         result.put("verdict", verdict);
@@ -190,6 +191,7 @@ public class DetectionService {
         if (resultForDb.containsKey("details")) {
             Map<String, Object> details = new HashMap<>((Map<String, Object>) resultForDb.get("details"));
             details.remove("ela_image_base64");
+            details.remove("ela_heatmap_base64");
             resultForDb.put("details", details);
         }
         history.setAnalysisMetadata(toJson(resultForDb));
@@ -226,5 +228,13 @@ public class DetectionService {
         } catch (Exception e) {
             return map.toString();
         }
+    }
+
+    public Map<String, Object> getStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalScans", detectionRepository.count());
+        stats.put("totalUsers", userRepository.count());
+        stats.put("deepfakesDetected", detectionRepository.countByResultLabel("Fake"));
+        return stats;
     }
 }

@@ -21,6 +21,7 @@ export interface DetectionResult {
         ela_std?: number;
         ela_max?: number;
         ela_image_base64?: string;
+        ela_heatmap_base64?: string;
         [key: string]: unknown;
     };
 }
@@ -57,6 +58,11 @@ export const detectionApi = {
 
     getReport: async (id: string): Promise<DetectionHistoryItem> => {
         const response = await api.get(`/detection/history/${id}`);
+        return response.data;
+    },
+
+    getStats: async (): Promise<{ totalScans: number; totalUsers: number; deepfakesDetected: number }> => {
+        const response = await api.get('/detection/stats');
         return response.data;
     },
 

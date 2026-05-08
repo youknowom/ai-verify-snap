@@ -52,4 +52,9 @@ public class DetectionController {
         DetectionHistory detection = detectionService.getDetectionById(scanId);
         return ResponseEntity.ok(detection);
     }
+
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getStats() {
+        return ResponseEntity.ok(detectionService.getStats());
+    }
 }

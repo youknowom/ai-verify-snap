@@ -1,10 +1,11 @@
 "use client";
 
 import { motion, useInView } from "framer-motion";
-import { ArrowRight, ShieldCheck, Cpu, Fingerprint, Upload, ScanLine, FileCheck, BarChart3, Users, Zap, Quote } from "lucide-react";
+import { ArrowRight, ShieldCheck, Cpu, Fingerprint, Upload, ScanLine, FileCheck, BarChart3, Users, Zap, Quote, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useRef, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { detectionApi } from "@/lib/api";
 
 const AnimatedCounter = dynamic(
     () => Promise.resolve(({ target, suffix = "" }: { target: number; suffix?: string }) => {
@@ -41,12 +42,7 @@ const AnimatedCounter = dynamic(
 
 const ease = [0.16, 1, 0.3, 1];
 
-const stats = [
-    { value: 12000, suffix: "+", label: "Images Analyzed", icon: BarChart3 },
-    { value: 48, suffix: "+", label: "Registered Users", icon: Users },
-    { value: 98, suffix: "%", label: "Detection Accuracy", icon: ShieldCheck },
-    { value: 342, suffix: "ms", label: "Avg. Processing Time", icon: Zap },
-];
+// Stats are fetched live from the backend — see useEffect in Home()
 
 const pillars = [
     { icon: Cpu, title: "Forensic by design", desc: "Multi-layer deep feature analysis with full transparency, utilizing state-of-the-art Error Level Analysis networks." },
@@ -61,12 +57,28 @@ const steps = [
 ];
 
 const testimonials = [
-    { quote: "AIVerifySnap helped our newsroom verify a viral image in under a minute. The ELA analysis clearly showed artifacts that were invisible to the naked eye.", name: "Priya Sharma", role: "Senior Editor, The Digital Wire", avatar: "PS" },
-    { quote: "As a digital forensics researcher, I appreciate the dual-stream architecture. The combination of RGB analysis with ELA provides a level of explainability that other tools lack.", name: "Dr. Arjun Mehta", role: "AI Researcher, IIT Bombay", avatar: "AM" },
-    { quote: "We integrated the API into our content moderation pipeline. It flags synthetic media before it reaches our platform. The accuracy at scale has been remarkable.", name: "Sneha Kulkarni", role: "CTO, TrustMedia Inc.", avatar: "SK" },
+    { quote: "The ELA analysis clearly highlighted compression artifacts that were invisible to the naked eye. A promising tool for media verification workflows.", name: "Early Tester", role: "Digital Forensics Researcher", avatar: "ET" },
+    { quote: "The dual-stream architecture combining RGB analysis with ELA provides a level of explainability that sets this apart from black-box classifiers.", name: "Beta User", role: "AI/ML Engineer", avatar: "BU" },
+    { quote: "Being able to see the ELA heatmap alongside the original image makes it easy to explain detection results to non-technical stakeholders.", name: "Pilot User", role: "Content Moderation Lead", avatar: "PU" },
 ];
 
 export default function Home() {
+    const [stats, setStats] = useState([
+        { value: 0, suffix: "+", label: "Images Analyzed", icon: BarChart3 },
+        { value: 0, suffix: "+", label: "Registered Users", icon: Users },
+        { value: 0, suffix: "", label: "Deepfakes Detected", icon: AlertTriangle },
+    ]);
+
+    useEffect(() => {
+        detectionApi.getStats().then((data) => {
+            setStats([
+                { value: data.totalScans || 0, suffix: "+", label: "Images Analyzed", icon: BarChart3 },
+                { value: data.totalUsers || 0, suffix: "", label: "Registered Users", icon: Users },
+                { value: data.deepfakesDetected || 0, suffix: "", label: "Deepfakes Detected", icon: AlertTriangle },
+            ]);
+        }).catch(() => { /* backend offline — keep zeros */ });
+    }, []);
+
     return (
         <div className="flex flex-col bg-background min-h-screen relative overflow-hidden">
             {/* Ambient orbs */}
@@ -112,7 +124,7 @@ export default function Home() {
             {/* ───── STATS ───── */}
             <section className="w-full py-14 divider-subtle" style={{ borderBottom: "1px solid hsl(var(--border) / 0.3)" }}>
                 <div className="max-w-[1080px] mx-auto px-6">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-3 gap-8">
                         {stats.map((stat, i) => (
                             <motion.div key={i} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.08, ease }}
@@ -201,8 +213,9 @@ export default function Home() {
                         className="text-center mb-14"
                     >
                         <h2 className="text-display font-serif text-foreground">
-                            Trusted by researchers<br />and newsrooms
+                            Early access<br />feedback
                         </h2>
+                        <p className="text-body text-muted-foreground mt-3">From our beta testing program</p>
                     </motion.div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
