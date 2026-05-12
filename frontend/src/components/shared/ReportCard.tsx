@@ -24,7 +24,7 @@ export function ReportCard({ result, confidence, elaScore, modelName, timestamp 
                 <div>
                     <p className="text-caption text-muted-foreground mb-1">Detection Result</p>
                     <div className="flex items-center gap-2.5">
-                        <span className={`text-xl font-bold ${result === "Real" ? "text-green-600" : result === "Suspicious" ? "text-amber-600" : "text-destructive"}`}>
+                        <span className={`text-xl font-bold ${result === "Real" ? "text-green-600" : result === "Suspicious" ? "text-orange-600" : "text-destructive"}`}>
                             {result}
                         </span>
                         <ResultBadge status={result} />

@@ -1,5 +1,6 @@
 package com.backend.aiverifysnap.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -23,15 +24,15 @@ public class DetectionHistory {
     @Column(name = "confidence_Score")
     private Double confidenceScore;
 
-        @Lob
     @Column(name = "analysis_metadata", columnDefinition = "TEXT")
     private String analysisMetadata;
 
     @Column(name = "scan_timestamp")
     private LocalDateTime scanTimestamp;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Users user;
 
     public DetectionHistory() {}

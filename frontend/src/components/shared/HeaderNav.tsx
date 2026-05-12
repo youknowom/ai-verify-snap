@@ -25,6 +25,7 @@ const platformItems: DropdownItem[] = [
     { icon: Upload, label: "Bulk Scan", desc: "Upload multiple images at once", href: "/detect?mode=bulk" },
     { icon: Eye, label: "Identity Protection", desc: "Scan the web for unauthorized likeness", href: "/protection" },
     { icon: History, label: "Scan History", desc: "View all past analysis reports", href: "/history" },
+    { icon: LayoutDashboard, label: "Admin Dashboard", desc: "Analytics & system overview", href: "/admin" },
     { icon: Layers, label: "API Access", desc: "Integrate detection into your apps", href: "/docs" },
 ];
 
@@ -117,9 +118,9 @@ function ThemeToggle() {
 function AuthSection() {
     const { isSignedIn, isLoaded } = useAuth();
     const [mounted, setMounted] = useState(false);
-    
+
     useEffect(() => setMounted(true), []);
-    
+
     // Prevent hydration mismatch by returning a placeholder of roughly the same size during SSR/hydration
     if (!mounted || !isLoaded) {
         return <div className="flex items-center gap-2 min-w-[140px] h-9" suppressHydrationWarning />;
@@ -195,7 +196,7 @@ export function HeaderNav() {
                         {/* Logo */}
                         <Link href="/" className="flex items-center transition-opacity hover:opacity-70">
                             <span className="text-[22px] font-bold tracking-tighter text-foreground lowercase">
-                                ai<span className="font-light">verify</span>snap
+                                ai<span className="font-light text-accent"><b>verify</b></span>snap
                             </span>
                         </Link>
 
@@ -209,11 +210,10 @@ export function HeaderNav() {
                                     onMouseLeave={handleMouseLeave}
                                 >
                                     <button
-                                        className={`flex items-center gap-1 px-3.5 py-2 text-[13px] font-medium tracking-wide uppercase transition-colors duration-150 rounded-md ${
-                                            activeDropdown === link.key
+                                        className={`flex items-center gap-1 px-3.5 py-2 text-[13px] font-medium tracking-wide uppercase transition-colors duration-150 rounded-md ${activeDropdown === link.key
                                                 ? "text-foreground"
                                                 : "text-muted-foreground hover:text-foreground"
-                                        }`}
+                                            }`}
                                     >
                                         {link.label}
                                         <ChevronDown
@@ -263,7 +263,7 @@ export function HeaderNav() {
                             <div className="p-5">
                                 <div className="flex items-center justify-between mb-6">
                                     <span className="text-lg font-bold tracking-tighter lowercase text-foreground">
-                                        ai<span className="font-light">verify</span>snap
+                                        ai<span className="font-light text-accent">verify</span>snap
                                     </span>
                                     <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground" aria-label="Close menu">
                                         <X className="w-5 h-5" strokeWidth={1.8} />

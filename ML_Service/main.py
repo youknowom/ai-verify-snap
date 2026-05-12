@@ -1,12 +1,15 @@
 import io
+import os
 import base64
 import time
 from pathlib import Path
 
 import numpy as np
+import requests as http_requests
 import torch
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from torchvision import transforms
 
 from model import AIVerifySnapModel, AIVerifySnapModelV1
@@ -18,10 +21,22 @@ app = FastAPI(
     version="5.0.0",
 )
 
+# Allow frontend to call ML service directly
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # ---------------------------------------------------------------------------
 # Paths & constants
 # ---------------------------------------------------------------------------
 CHECKPOINT_PATH = Path(__file__).parent / "artifacts" / "best_model.pt"
+
+# SerpAPI key for reverse image search (set via env or hardcode for dev)
+SERP_API_KEY = os.environ.get("SERP_API_KEY", "a4d28037c285bf74ea446c74b99f56aacebca4abe5d3d7bfd5107f3bd252eafc")
 
 # These will be populated by load_model()
 custom_model = None
@@ -178,6 +193,115 @@ def _infer_huggingface(img: Image.Image):
 
 
 # ---------------------------------------------------------------------------
+# Reverse image search helper
+# ---------------------------------------------------------------------------
+def _upload_temp_image(image_bytes: bytes, filename: str) -> str:
+    """Upload image to a free temporary hosting service and return public URL."""
+    # Option 1: uguu.se (very fast, no API key, works when others are blocked)
+    try:
+        resp = http_requests.post(
+            "https://uguu.se/upload",
+            files={"files[]": (filename, image_bytes, "image/jpeg")},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("success") and data.get("files"):
+                url = data["files"][0].get("url")
+                if url:
+                    print(f"Image uploaded to uguu.se: {url}")
+                    return url
+    except Exception as e:
+        print(f"uguu.se upload failed: {e}")
+
+    # Option 2: freeimage.host (no API key needed, reliable)
+    try:
+        encoded = base64.b64encode(image_bytes).decode("utf-8")
+        resp = http_requests.post(
+            "https://freeimage.host/api/1/upload",
+            data={"key": "6d207e02198a847aa98d0a2a901485a5", "action": "upload", "source": encoded, "format": "json"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            url = data.get("image", {}).get("url", "")
+            if url:
+                print(f"Image uploaded to freeimage.host: {url}")
+                return url
+    except Exception as e:
+        print(f"freeimage.host upload failed: {e}")
+
+    # Option 3: Catbox.moe (anonymous, no account)
+    try:
+        resp = http_requests.post(
+            "https://catbox.moe/user/api.php",
+            data={"reqtype": "fileupload"},
+            files={"fileToUpload": (filename, image_bytes)},
+            timeout=10,
+        )
+        if resp.status_code == 200 and resp.text.startswith("http"):
+            url = resp.text.strip()
+            print(f"Image uploaded to catbox.moe: {url}")
+            return url
+    except Exception as e:
+        print(f"catbox.moe upload failed: {e}")
+
+    # Option 4: tmpfiles.org
+    try:
+        resp = http_requests.post(
+            "https://tmpfiles.org/api/v1/upload",
+            files={"file": (filename, image_bytes)},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            url = data.get("data", {}).get("url", "")
+            if url:
+                # tmpfiles.org returns a page URL, convert to direct link
+                url = url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                print(f"Image uploaded to tmpfiles.org: {url}")
+                return url
+    except Exception as e:
+        print(f"tmpfiles.org upload failed: {e}")
+
+    raise Exception("Failed to upload image to any temporary hosting service")
+
+
+def _reverse_image_search(image_url: str) -> dict:
+    """Call SerpAPI Google Lens with the given image URL."""
+    from serpapi import GoogleSearch
+
+    params = {
+        "engine": "google_lens",
+        "url": image_url,
+        "api_key": SERP_API_KEY,
+    }
+
+    search = GoogleSearch(params)
+    results = search.get_dict()
+
+    # Extract visual matches
+    visual_matches = []
+    for match in results.get("visual_matches", []):
+        visual_matches.append({
+            "position": match.get("position"),
+            "title": match.get("title", ""),
+            "link": match.get("link", ""),
+            "source": match.get("source", ""),
+            "source_icon": match.get("source_icon", ""),
+            "thumbnail": match.get("thumbnail", ""),
+        })
+
+    return {
+        "visual_matches": visual_matches,
+        "knowledge_graph": results.get("knowledge_graph", {}),
+        "search_metadata": {
+            "google_lens_url": results.get("search_metadata", {}).get("google_lens_url", ""),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 @app.get("/")
@@ -192,6 +316,7 @@ async def health_check():
         "model": model_desc,
         "using_custom_model": using_custom_model,
         "device": str(DEVICE),
+        "serp_api_configured": bool(SERP_API_KEY),
     }
 
 
@@ -267,6 +392,44 @@ async def detect_media(file: UploadFile = File(...), include_ela_image: bool = T
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+
+
+@app.post("/reverse-search")
+async def reverse_image_search(file: UploadFile = File(...)):
+    """Upload an image and search for visual matches using Google Lens via SerpAPI."""
+    if not SERP_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="SERP_API_KEY is not configured. Set it as an environment variable.",
+        )
+
+    try:
+        image_bytes = await file.read()
+
+        # Validate it's an actual image
+        try:
+            Image.open(io.BytesIO(image_bytes))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Uploaded file must be a valid image.")
+
+        # Step 1: Upload to temp host to get a public URL
+        public_url = _upload_temp_image(image_bytes, file.filename or "image.jpg")
+
+        # Step 2: Search Google Lens via SerpAPI
+        results = _reverse_image_search(public_url)
+
+        return {
+            "success": True,
+            "image_url": public_url,
+            "total_matches": len(results["visual_matches"]),
+            **results,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Reverse search error: {e}")
+        raise HTTPException(status_code=500, detail=f"Reverse search failed: {str(e)}")
 
 
 if __name__ == "__main__":

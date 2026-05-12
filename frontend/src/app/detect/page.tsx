@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, AlertCircle, Flag, CheckCircle2, Upload, Layers, X, FileImage } from "lucide-react";
 import Image from "next/image";
 import { detectionApi, DetectionResult } from "@/lib/api";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 // No client-side resizing — sending the original file preserves compression
 // artifacts and pixel-level details that are critical for deepfake detection.
@@ -44,7 +44,7 @@ function FeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (
                 ) : (
                     <>
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold tracking-tight flex items-center gap-2"><Flag className="w-5 h-5 text-amber-500" /> Report Inaccuracy</h3>
+                            <h3 className="text-lg font-bold tracking-tight flex items-center gap-2"><Flag className="w-5 h-5 text-orange-500" /> Report Inaccuracy</h3>
                             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="w-4 h-4" /></button>
                         </div>
                         <p className="text-sm text-muted-foreground mb-4">If you believe this result is incorrect, let us know. This helps retrain our model.</p>
@@ -68,6 +68,7 @@ function FeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (
 
 export default function DetectPage() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const isBulkMode = searchParams.get("mode") === "bulk";
 
     const [mode, setMode] = useState<"single" | "bulk">(isBulkMode ? "bulk" : "single");
@@ -340,10 +341,18 @@ export default function DetectPage() {
                             <button onClick={() => { setFile(null); setResultReady(false); setDetectionResult(null); }} className="flex-1 py-2.5 card-elevated rounded-lg text-[14px] font-semibold text-foreground hover:bg-muted/50 transition-all">
                                 Scan Another
                             </button>
-                            <button onClick={() => setShowFeedback(true)} className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500/8 text-amber-600 dark:text-amber-400 border border-amber-500/15 hover:bg-amber-500/15 transition-all rounded-lg text-[13px] font-semibold">
+                            <button onClick={() => setShowFeedback(true)} className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-orange-500/8 text-orange-600 dark:text-orange-400 border border-orange-500/15 hover:bg-orange-500/15 transition-all rounded-lg text-[13px] font-semibold">
                                 <Flag className="w-3.5 h-3.5" /> Report
                             </button>
-                            <button className="flex-1 btn-primary py-2.5 text-[14px] rounded-lg">
+                            <button
+                                onClick={() => {
+                                    if (detectionResult?.scan_id) {
+                                        router.push(`/report/${detectionResult.scan_id}`);
+                                    }
+                                }}
+                                disabled={!detectionResult?.scan_id}
+                                className="flex-1 btn-primary py-2.5 text-[14px] rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
                                 Generate Report
                             </button>
                         </div>

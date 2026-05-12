@@ -4,6 +4,8 @@ import com.backend.aiverifysnap.model.DetectionHistory;
 import com.backend.aiverifysnap.service.DetectionService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,8 @@ import java.util.Map;
 @RequestMapping("/detection")
 @Tag(name = "Detection", description = "Deepfake detection API")
 public class DetectionController {
+
+    private static final Logger log = LoggerFactory.getLogger(DetectionController.class);
 
     private final DetectionService detectionService;
 
@@ -36,25 +40,48 @@ public class DetectionController {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(result);
         }
         String imagePath = file.getOriginalFilename();
-        detectionService.saveDetectionAsync(result, imagePath, userId);
+        try {
+            DetectionHistory saved = detectionService.saveDetection(result, imagePath, userId);
+            result.put("scan_id", saved.getScanId());
+        } catch (Exception e) {
+            log.warn("Failed to persist detection history: {}", e.toString());
+        }
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/history")
-    public ResponseEntity<List<DetectionHistory>> getAllDetections() {
-        List<DetectionHistory> detections = detectionService.getAllDetections();
-        return ResponseEntity.ok(detections);
+    public ResponseEntity<?> getAllDetections() {
+        try {
+            List<DetectionHistory> detections = detectionService.getAllDetections();
+            return ResponseEntity.ok(detections);
+        } catch (Exception e) {
+            log.error("Failed to fetch detection history: {}", e.toString(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch detection history", "details", e.getMessage()));
+        }
     }
 
     @GetMapping("/history/{scanId}")
-    public ResponseEntity<DetectionHistory> getDetectionById(
+    public ResponseEntity<?> getDetectionById(
             @Parameter(description = "Scan ID of the detection") @PathVariable Long scanId) {
-        DetectionHistory detection = detectionService.getDetectionById(scanId);
-        return ResponseEntity.ok(detection);
+        try {
+            DetectionHistory detection = detectionService.getDetectionById(scanId);
+            return ResponseEntity.ok(detection);
+        } catch (Exception e) {
+            log.error("Failed to fetch detection {}: {}", scanId, e.toString(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Detection not found", "details", e.getMessage()));
+        }
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getStats() {
-        return ResponseEntity.ok(detectionService.getStats());
+    public ResponseEntity<?> getStats() {
+        try {
+            return ResponseEntity.ok(detectionService.getStats());
+        } catch (Exception e) {
+            log.error("Failed to fetch stats: {}", e.toString(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch stats", "details", e.getMessage()));
+        }
     }
 }

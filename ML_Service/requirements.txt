@@ -6,3 +6,5 @@ torchvision
 Pillow
 transformers
 numpy
+google-search-results
+requests

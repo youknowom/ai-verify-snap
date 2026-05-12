@@ -73,7 +73,7 @@ export default function Home() {
         detectionApi.getStats().then((data) => {
             setStats([
                 { value: data.totalScans || 0, suffix: "+", label: "Images Analyzed", icon: BarChart3 },
-                { value: data.totalUsers || 0, suffix: "", label: "Registered Users", icon: Users },
+                { value: data.totalUsers || 0, suffix: "+", label: "Registered Users", icon: Users },
                 { value: data.deepfakesDetected || 0, suffix: "", label: "Deepfakes Detected", icon: AlertTriangle },
             ]);
         }).catch(() => { /* backend offline — keep zeros */ });

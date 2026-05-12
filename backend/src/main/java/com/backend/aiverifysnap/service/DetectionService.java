@@ -214,7 +214,7 @@ public class DetectionService {
     }
 
     public List<DetectionHistory> getAllDetections() {
-        return detectionRepository.findAll();
+        return detectionRepository.findAllByOrderByScanTimestampDesc();
     }
 
     public DetectionHistory getDetectionById(Long scanId) {

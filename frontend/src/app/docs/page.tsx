@@ -236,7 +236,7 @@ export default function DocsPage() {
                             </button>
                             <button onClick={ml.refresh} className="flex items-center gap-2 text-[13px] text-muted-foreground px-3.5 py-2 rounded-lg border hover:bg-muted/30 transition-colors" style={{ background: 'hsl(var(--muted) / 0.4)', borderColor: 'hsl(var(--border) / 0.5)' }}>
                                 <StatusDot ok={ml.ok} />
-                                <Zap className="w-3.5 h-3.5 text-amber-500" />
+                                <Zap className="w-3.5 h-3.5 text-orange-500" />
                                 ML Service <code className="font-mono text-foreground text-[12px]">:8000</code>
                                 {ml.latency !== null && <span className="text-[11px] text-green-500">{ml.latency}ms</span>}
                                 {ml.ok === false && <span className="text-[11px] text-destructive">offline</span>}
@@ -297,7 +297,7 @@ export default function DocsPage() {
                             transition={{ duration: 0.4, delay: i * 0.03 }} className="card-elevated rounded-xl overflow-hidden">
                             <div className="px-5 py-4" style={{ borderBottom: "1px solid hsl(var(--border) / 0.3)" }}>
                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${ep.method === "POST" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : ep.method === "GET" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"}`}>
+                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${ep.method === "POST" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : ep.method === "GET" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"}`}>
                                         {ep.method}
                                     </span>
                                     <code className="text-[14px] font-mono font-semibold text-foreground">{ep.path}</code>

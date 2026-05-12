@@ -28,7 +28,7 @@
     --muted: 35 10% 94%;
     --muted-foreground: 220 8% 52%;
 
-    --accent: 35 55% 58%;
+    --accent: 24 95% 53%;
     --accent-foreground: 220 15% 10%;
 
     --destructive: 0 72% 51%;
@@ -36,7 +36,7 @@
 
     --border: 35 10% 89%;
     --input: 35 10% 89%;
-    --ring: 35 55% 58%;
+    --ring: 24 95% 53%;
     --radius: 1rem;
 
     --font-serif: "DM Serif Display", serif;
@@ -61,7 +61,7 @@
     --muted: 230 10% 14%;
     --muted-foreground: 220 8% 58%;
 
-    --accent: 35 55% 58%;
+    --accent: 24 95% 53%;
     --accent-foreground: 40 10% 94%;
 
     --destructive: 0 72% 51%;
@@ -69,7 +69,7 @@
 
     --border: 230 10% 14%;
     --input: 230 10% 14%;
-    --ring: 35 55% 58%;
+    --ring: 24 95% 53%;
   }
 
   * {
@@ -183,7 +183,7 @@
   opacity: 0.4;
 }
 .ambient-orb-warm {
-  background: radial-gradient(circle, hsl(35 70% 65% / 0.25) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(24 95% 53% / 0.25) 0%, transparent 70%);
 }
 .ambient-orb-cool {
   background: radial-gradient(circle, hsl(220 60% 75% / 0.2) 0%, transparent 70%);

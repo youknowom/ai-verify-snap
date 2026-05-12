@@ -1,5 +1,7 @@
 package com.backend.aiverifysnap.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -7,6 +9,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Users {
 
     @Id
@@ -20,6 +23,7 @@ public class Users {
     @Column(name = "email")
     private String email;
 
+    @JsonIgnore
     @Column(name = "password_hash")
     private String passwordHash;
 

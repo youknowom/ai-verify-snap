@@ -51,7 +51,7 @@ const tiers = [
         period: "",
         description: "For organizations and platforms at scale.",
         icon: Crown,
-        iconBg: "bg-amber-500/8 text-amber-600 dark:text-amber-400",
+        iconBg: "bg-orange-500/8 text-orange-600 dark:text-orange-400",
         cta: "Contact Sales",
         ctaClass: "btn-secondary",
         features: [

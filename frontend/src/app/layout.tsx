@@ -45,7 +45,7 @@ export default function RootLayout({
                   <div className="col-span-2 md:col-span-2">
                     <Link href="/" className="inline-block mb-3">
                       <span className="text-lg font-bold tracking-tighter lowercase text-foreground">
-                        ai<span className="font-light">verify</span>snap
+                        ai<span className="font-light text-accent">verify</span>snap
                       </span>
                     </Link>
                     <p className="text-[14px] text-muted-foreground leading-relaxed max-w-[280px]">
