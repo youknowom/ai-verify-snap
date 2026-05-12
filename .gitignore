@@ -21,3 +21,11 @@ ml_service/venv/
 # Node
 node_modules/
 .next/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.env
