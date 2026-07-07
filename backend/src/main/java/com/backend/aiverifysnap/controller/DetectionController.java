@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +38,13 @@ public class DetectionController {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
         }
+
+        // Validate file content type
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File must be an image (JPEG, PNG, or WEBP)"));
+        }
+
         Map<String, Object> result = detectionService.detectDeepfake(file);
         if (result.containsKey("error")) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(result);
@@ -50,38 +60,26 @@ public class DetectionController {
     }
 
     @GetMapping("/history")
-    public ResponseEntity<?> getAllDetections() {
-        try {
-            List<DetectionHistory> detections = detectionService.getAllDetections();
-            return ResponseEntity.ok(detections);
-        } catch (Exception e) {
-            log.error("Failed to fetch detection history: {}", e.toString(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to fetch detection history", "details", e.getMessage()));
-        }
+    public ResponseEntity<?> getAllDetections(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        // Cap page size to prevent abuse
+        int cappedSize = Math.min(size, 100);
+        Pageable pageable = PageRequest.of(page, cappedSize);
+        Page<DetectionHistory> detections = detectionService.getAllDetections(pageable);
+        return ResponseEntity.ok(detections);
     }
 
     @GetMapping("/history/{scanId}")
-    public ResponseEntity<?> getDetectionById(
+    public ResponseEntity<DetectionHistory> getDetectionById(
             @Parameter(description = "Scan ID of the detection") @PathVariable Long scanId) {
-        try {
-            DetectionHistory detection = detectionService.getDetectionById(scanId);
-            return ResponseEntity.ok(detection);
-        } catch (Exception e) {
-            log.error("Failed to fetch detection {}: {}", scanId, e.toString(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Detection not found", "details", e.getMessage()));
-        }
+        // EntityNotFoundException → 404 handled by GlobalExceptionHandler
+        DetectionHistory detection = detectionService.getDetectionById(scanId);
+        return ResponseEntity.ok(detection);
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<?> getStats() {
-        try {
-            return ResponseEntity.ok(detectionService.getStats());
-        } catch (Exception e) {
-            log.error("Failed to fetch stats: {}", e.toString(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to fetch stats", "details", e.getMessage()));
-        }
+    public ResponseEntity<Map<String, Object>> getStats() {
+        return ResponseEntity.ok(detectionService.getStats());
     }
 }

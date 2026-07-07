@@ -8,7 +8,11 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+    @Index(name = "idx_users_name", columnList = "name"),
+    @Index(name = "idx_users_email", columnList = "email"),
+    @Index(name = "idx_users_clerk_id", columnList = "clerk_id")
+})
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Users {
 

@@ -2,18 +2,30 @@ import io
 import os
 import base64
 import time
+import logging
+import psutil
 from pathlib import Path
+import magic
 
 import numpy as np
 import requests as http_requests
 import torch
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from torchvision import transforms
 
 from model import AIVerifySnapModel, AIVerifySnapModelV1
 from utils import generate_ela, generate_ela_heatmap
+from config import settings
+
+# Setup Structured Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+logger = logging.getLogger("AIVerifySnapML")
 
 app = FastAPI(
     title="AIVerifySnap AI Service Layer",
@@ -21,10 +33,36 @@ app = FastAPI(
     version="5.0.0",
 )
 
+# Global Exception Handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "message": "Internal server error",
+            "errorCode": "INTERNAL_ERROR",
+            "timestamp": time.time(),
+        }
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "message": exc.detail,
+            "errorCode": "HTTP_ERROR",
+            "timestamp": time.time(),
+        }
+    )
+
 # Allow frontend to call ML service directly
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,8 +73,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 CHECKPOINT_PATH = Path(__file__).parent / "artifacts" / "best_model.pt"
 
-# SerpAPI key for reverse image search (set via env or hardcode for dev)
-SERP_API_KEY = os.environ.get("SERP_API_KEY", "a4d28037c285bf74ea446c74b99f56aacebca4abe5d3d7bfd5107f3bd252eafc")
+# SerpAPI key is now managed in config.py securely
 
 # These will be populated by load_model()
 custom_model = None
@@ -53,8 +90,8 @@ HF_ID2LABEL = {0: "Fake", 1: "Real"}
 
 using_custom_model = False
 
-ELA_MAX_DIM = 512
-ELA_QUALITY = 90  # Must match training quality for consistent ELA signatures
+ELA_MAX_DIM = settings.ELA_MAX_DIM
+ELA_QUALITY = settings.ELA_QUALITY
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -85,11 +122,15 @@ def load_model() -> None:
 
     # --- Try custom checkpoint first ---
     if CHECKPOINT_PATH.exists():
-        print(f"Loading custom model from {CHECKPOINT_PATH} ...")
+        logger.info(f"Attempting to load custom model from {CHECKPOINT_PATH} ...")
         try:
             ckpt = torch.load(CHECKPOINT_PATH, map_location="cpu", weights_only=False)
             custom_image_size = ckpt.get("image_size", 224)
             custom_class_mapping = ckpt.get("class_mapping", {"Fake": 0, "Real": 1})
+            
+            if "model_state_dict" not in ckpt:
+                raise ValueError("Checkpoint is missing 'model_state_dict'")
+                
             state_dict = ckpt["model_state_dict"]
 
             # Try the V1 architecture first (matches the trained checkpoint),
@@ -102,27 +143,26 @@ def load_model() -> None:
                     candidate.to(DEVICE)
                     candidate.eval()
                     model = candidate
-                    print(f"Loaded checkpoint with {name} architecture ({model_cls.__name__}).")
+                    logger.info(f"Successfully loaded checkpoint with {name} architecture ({model_cls.__name__}).")
                     break
-                except RuntimeError as e:
-                    print(f"{name} architecture ({model_cls.__name__}) failed: {e}")
+                except Exception as e:
+                    logger.warning(f"Architecture ({name}/{model_cls.__name__}) compatibility failed: {str(e)}")
 
             if model is not None:
                 custom_model = model
                 custom_transforms_rgb, custom_transforms_ela = _build_eval_transforms(custom_image_size)
                 using_custom_model = True
                 best_acc = ckpt.get("best_val_acc", "N/A")
-                print(f"Custom model loaded! image_size={custom_image_size}, "
-                        f"class_mapping={custom_class_mapping}, best_val_acc={best_acc}, device={DEVICE}")
+                logger.info(f"Custom model operational. image_size={custom_image_size}, class_mapping={custom_class_mapping}, best_val_acc={best_acc}, device={DEVICE}")
                 return
             else:
-                print("Could not load checkpoint with any known architecture.")
+                logger.error("CRITICAL: Custom checkpoint exists but could not be loaded into any known architecture.")
         except Exception as e:
-            print(f"Failed to load custom checkpoint: {e}")
+            logger.error(f"CRITICAL: Failed to load custom checkpoint: {e}", exc_info=True)
             custom_model = None
 
     # --- Fallback: HuggingFace SigLIP model ---
-    print(f"Falling back to HuggingFace model: {HF_MODEL_NAME}")
+    logger.warning(f"Custom model failed. Falling back to HuggingFace model: {HF_MODEL_NAME}")
     try:
         from transformers import AutoImageProcessor, SiglipForImageClassification
         hf_processor = AutoImageProcessor.from_pretrained(HF_MODEL_NAME)
@@ -130,9 +170,9 @@ def load_model() -> None:
         hf_model.to(DEVICE)
         hf_model.eval()
         using_custom_model = False
-        print(f"HuggingFace fallback model loaded successfully on device={DEVICE}.")
+        logger.info(f"HuggingFace fallback model loaded successfully on device={DEVICE}.")
     except Exception as e:
-        print(f"FATAL - Failed to load fallback model: {e}")
+        logger.error(f"FATAL - Failed to load fallback model: {e}", exc_info=True)
 
 
 load_model()
@@ -152,7 +192,12 @@ def _infer_custom(img: Image.Image):
 
     with torch.no_grad():
         logit = custom_model(rgb_tensor, ela_tensor)              # (1, 1)
-        prob_real = torch.sigmoid(logit).item()
+        prob_real = torch.sigmoid(logit).cpu().item()
+
+    # Free tensor memory
+    del rgb_tensor, ela_tensor, logit
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     # class_mapping: {'Fake': 0, 'Real': 1}
     # sigmoid > 0.5 → Real (label 1), sigmoid ≤ 0.5 → Fake (label 0)
@@ -184,6 +229,11 @@ def _infer_huggingface(img: Image.Image):
         logits = outputs.logits
         probs = torch.nn.functional.softmax(logits, dim=1).squeeze().cpu().tolist()
 
+    # Free tensor memory
+    del inputs, outputs, logits
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     scores = [{"label": HF_ID2LABEL[idx], "score": round(prob, 6)}
               for idx, prob in enumerate(probs)]
     scores.sort(key=lambda x: x["score"], reverse=True)
@@ -209,10 +259,10 @@ def _upload_temp_image(image_bytes: bytes, filename: str) -> str:
             if data.get("success") and data.get("files"):
                 url = data["files"][0].get("url")
                 if url:
-                    print(f"Image uploaded to uguu.se: {url}")
+                    logger.info(f"Image uploaded to uguu.se: {url}")
                     return url
     except Exception as e:
-        print(f"uguu.se upload failed: {e}")
+        logger.warning(f"uguu.se upload failed: {e}")
 
     # Option 2: freeimage.host (no API key needed, reliable)
     try:
@@ -226,10 +276,10 @@ def _upload_temp_image(image_bytes: bytes, filename: str) -> str:
             data = resp.json()
             url = data.get("image", {}).get("url", "")
             if url:
-                print(f"Image uploaded to freeimage.host: {url}")
+                logger.info(f"Image uploaded to freeimage.host: {url}")
                 return url
     except Exception as e:
-        print(f"freeimage.host upload failed: {e}")
+        logger.warning(f"freeimage.host upload failed: {e}")
 
     # Option 3: Catbox.moe (anonymous, no account)
     try:
@@ -241,10 +291,10 @@ def _upload_temp_image(image_bytes: bytes, filename: str) -> str:
         )
         if resp.status_code == 200 and resp.text.startswith("http"):
             url = resp.text.strip()
-            print(f"Image uploaded to catbox.moe: {url}")
+            logger.info(f"Image uploaded to catbox.moe: {url}")
             return url
     except Exception as e:
-        print(f"catbox.moe upload failed: {e}")
+        logger.warning(f"catbox.moe upload failed: {e}")
 
     # Option 4: tmpfiles.org
     try:
@@ -259,11 +309,12 @@ def _upload_temp_image(image_bytes: bytes, filename: str) -> str:
             if url:
                 # tmpfiles.org returns a page URL, convert to direct link
                 url = url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-                print(f"Image uploaded to tmpfiles.org: {url}")
+                logger.info(f"Image uploaded to tmpfiles.org: {url}")
                 return url
     except Exception as e:
-        print(f"tmpfiles.org upload failed: {e}")
+        logger.warning(f"tmpfiles.org upload failed: {e}")
 
+    logger.error("Failed to upload image to any temporary hosting service")
     raise Exception("Failed to upload image to any temporary hosting service")
 
 
@@ -274,7 +325,7 @@ def _reverse_image_search(image_url: str) -> dict:
     params = {
         "engine": "google_lens",
         "url": image_url,
-        "api_key": SERP_API_KEY,
+        "api_key": settings.SERP_API_KEY,
     }
 
     search = GoogleSearch(params)
@@ -310,13 +361,28 @@ async def health_check():
     model_desc = ("AIVerifySnapModel (dual-stream RGB+ELA)"
                   if using_custom_model
                   else f"HuggingFace SigLIP fallback ({HF_MODEL_NAME})")
+    
+    # Calculate Memory
+    process = psutil.Process()
+    ram_usage = process.memory_info().rss / (1024 * 1024)
+    gpu_mem = torch.cuda.memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
+
     return {
         "status": "healthy" if model_loaded else "model_not_loaded",
         "service": "ai-detection-layer",
         "model": model_desc,
         "using_custom_model": using_custom_model,
         "device": str(DEVICE),
-        "serp_api_configured": bool(SERP_API_KEY),
+        "serp_api_configured": bool(settings.SERP_API_KEY),
+        "system_metrics": {
+            "ram_usage_mb": round(ram_usage, 2),
+            "gpu_usage_mb": round(gpu_mem, 2),
+            "cpu_percent": psutil.cpu_percent(),
+        },
+        "config": {
+            "environment": settings.ENVIRONMENT,
+            "max_file_size_mb": settings.MAX_FILE_SIZE_MB
+        }
     }
 
 
@@ -327,15 +393,25 @@ async def detect_media(file: UploadFile = File(...), include_ela_image: bool = T
 
     try:
         start_time = time.time()
-
         image_bytes = await file.read()
+        
+        # File Size Validation
+        if len(image_bytes) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"File exceeds maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB.")
+            
+        # Magic Byte File Type Validation
+        mime_type = magic.from_buffer(image_bytes, mime=True)
+        if not mime_type.startswith("image/"):
+            raise HTTPException(status_code=415, detail=f"Unsupported file type: {mime_type}. Must be an image.")
 
-        # Try to open as image — don't rely solely on content_type header
-        # because the Spring Boot backend proxy may send application/octet-stream
+        # Try to open as image
         try:
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        except Exception:
-            raise HTTPException(status_code=400, detail="Uploaded file must be a valid image.")
+            img.verify() # Verify integrity
+            img = Image.open(io.BytesIO(image_bytes)).convert("RGB") # Reopen after verify
+        except Exception as e:
+            logger.warning(f"Corrupted image upload detected: {e}")
+            raise HTTPException(status_code=400, detail="Uploaded file is corrupted or not a valid image format.")
 
         # --- Run inference ---
         if using_custom_model and custom_model is not None:
@@ -390,27 +466,39 @@ async def detect_media(file: UploadFile = File(...), include_ela_image: bool = T
             "using_custom_model": using_custom_model,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+        logger.error(f"Error processing image: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred while processing the image.")
 
 
 @app.post("/reverse-search")
 async def reverse_image_search(file: UploadFile = File(...)):
     """Upload an image and search for visual matches using Google Lens via SerpAPI."""
-    if not SERP_API_KEY:
+    if not settings.SERP_API_KEY:
         raise HTTPException(
             status_code=503,
-            detail="SERP_API_KEY is not configured. Set it as an environment variable.",
+            detail="SERP_API_KEY is not configured in the environment.",
         )
 
     try:
         image_bytes = await file.read()
 
-        # Validate it's an actual image
+        # File Size Validation
+        if len(image_bytes) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"File exceeds maximum allowed size of {settings.MAX_FILE_SIZE_MB}MB.")
+            
+        # Magic Byte Validation
+        mime_type = magic.from_buffer(image_bytes, mime=True)
+        if not mime_type.startswith("image/"):
+            raise HTTPException(status_code=415, detail=f"Unsupported file type: {mime_type}. Must be an image.")
+
         try:
-            Image.open(io.BytesIO(image_bytes))
-        except Exception:
-            raise HTTPException(status_code=400, detail="Uploaded file must be a valid image.")
+            Image.open(io.BytesIO(image_bytes)).verify()
+        except Exception as e:
+            logger.warning(f"Corrupted image upload during reverse search: {e}")
+            raise HTTPException(status_code=400, detail="Uploaded file is corrupted.")
 
         # Step 1: Upload to temp host to get a public URL
         public_url = _upload_temp_image(image_bytes, file.filename or "image.jpg")
@@ -428,8 +516,8 @@ async def reverse_image_search(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Reverse search error: {e}")
-        raise HTTPException(status_code=500, detail=f"Reverse search failed: {str(e)}")
+        logger.error(f"Reverse search error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred during reverse search.")
 
 
 if __name__ == "__main__":

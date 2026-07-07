@@ -1,5 +1,6 @@
 package com.backend.aiverifysnap.controller;
 
+import com.backend.aiverifysnap.dto.UserCreationDto;
 import com.backend.aiverifysnap.dto.UserDto;
 import com.backend.aiverifysnap.model.Users;
 import com.backend.aiverifysnap.service.UserService;
@@ -10,6 +11,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,13 +42,13 @@ public class UserController {
 
         @Operation(summary = "Register a new user", description = "Create a new user account")
         @ApiResponses(value = {
-                        @ApiResponse(responseCode = "200", description = "User registered successfully", content = @Content(schema = @Schema(implementation = Users.class))),
+                        @ApiResponse(responseCode = "201", description = "User registered successfully", content = @Content(schema = @Schema(implementation = UserDto.class))),
                         @ApiResponse(responseCode = "400", description = "Invalid user data")
         })
         @PostMapping("/register")
-        public ResponseEntity<Users> registerUser(@RequestBody Users user) {
-                Users usersaved = userService.registerUser(user);
-                return ResponseEntity.ok(usersaved);
+        public ResponseEntity<UserDto> registerUser(@RequestBody @Valid UserCreationDto dto) {
+                UserDto saved = userService.registerUser(dto.getName(), dto.getEmail(), dto.getRole());
+                return ResponseEntity.status(HttpStatus.CREATED).body(saved);
         }
 
         @Operation(summary = "Update user", description = "Update an existing user's details")
@@ -62,14 +66,14 @@ public class UserController {
 
         @Operation(summary = "Delete user", description = "Delete a user by their name")
         @ApiResponses(value = {
-                        @ApiResponse(responseCode = "200", description = "User deleted successfully"),
+                        @ApiResponse(responseCode = "204", description = "User deleted successfully"),
                         @ApiResponse(responseCode = "404", description = "User not found")
         })
         @DeleteMapping("/delete/{name}")
-        public ResponseEntity<String> deleteUser(
+        public ResponseEntity<Void> deleteUser(
                         @Parameter(description = "Name of the user to delete") @PathVariable String name) {
                 userService.deleteUserByName(name);
-                return ResponseEntity.ok("User deleted successfully!");
+                return ResponseEntity.noContent().build();
         }
 
         @Operation(summary = "Sync Clerk user", description = "Create or update a user from Clerk authentication data")

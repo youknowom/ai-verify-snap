@@ -1,30 +1,34 @@
 package com.backend.aiverifysnap.dto;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
+/**
+ * DTO for user registration requests.
+ * Uses Jakarta Bean Validation annotations to enforce input constraints.
+ */
 public class UserCreationDto {
 
-    private Long id;
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email must be a valid email address")
     private String email;
+
     private String role;
+
     private String clerkId;
 
     public UserCreationDto() {}
 
-    public UserCreationDto(Long id, String name, String email, String role, String clerkId) {
-        this.id = id;
+    public UserCreationDto(String name, String email, String role, String clerkId) {
         this.name = name;
         this.email = email;
         this.role = role;
         this.clerkId = clerkId;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {
@@ -58,5 +62,4 @@ public class UserCreationDto {
     public void setClerkId(String clerkId) {
         this.clerkId = clerkId;
     }
-
 }

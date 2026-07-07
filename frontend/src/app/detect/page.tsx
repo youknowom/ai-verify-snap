@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { UploadDropzone } from "@/components/shared/UploadDropzone";
 import { ReportCard } from "@/components/shared/ReportCard";
 import { HeatmapViewer } from "@/components/shared/HeatmapViewer";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, AlertCircle, Flag, CheckCircle2, Upload, Layers, X, FileImage } from "lucide-react";
+import { Loader2, AlertCircle, Flag, CheckCircle2, Upload, Layers, X } from "lucide-react";
 import Image from "next/image";
 import { detectionApi, DetectionResult } from "@/lib/api";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -66,7 +66,7 @@ function FeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (
     );
 }
 
-export default function DetectPage() {
+function DetectPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const isBulkMode = searchParams.get("mode") === "bulk";
@@ -365,5 +365,18 @@ export default function DetectPage() {
                 {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} onSubmit={(reason) => console.log("Feedback:", reason)} />}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function DetectPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-[calc(100vh-4rem)] max-w-[1120px] mx-auto px-6 py-10 flex flex-col items-center justify-center space-y-3">
+                <Loader2 className="w-6 h-6 text-accent animate-spin" />
+                <p className="text-caption text-muted-foreground">Loading forensic console...</p>
+            </div>
+        }>
+            <DetectPageContent />
+        </Suspense>
     );
 }

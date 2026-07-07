@@ -7,11 +7,23 @@ import {
     ScanLine, Eye, Upload, Layers,
     BookOpen, Code2, HelpCircle, FileText,
     Users, Mail, CreditCard, Zap,
-    LayoutDashboard, History, ShieldAlert
+    LayoutDashboard, History,
+    User, Settings, LogOut
 } from "lucide-react";
-import { useAuth, UserButton, SignInButton } from "@clerk/nextjs";
+import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { motion, AnimatePresence } from "framer-motion";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AuthDialog } from "@/components/shared/AuthDialog";
 
 interface DropdownItem {
     icon: React.ElementType;
@@ -115,36 +127,96 @@ function ThemeToggle() {
     );
 }
 
-function AuthSection() {
-    const { isSignedIn, isLoaded } = useAuth();
+function AuthSection({ onSignIn }: { onSignIn: () => void }) {
+    const { data: session, status } = useSession();
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => setMounted(true), []);
 
-    // Prevent hydration mismatch by returning a placeholder of roughly the same size during SSR/hydration
+    const isLoaded = status !== "loading";
+    const isSignedIn = !!session;
+
     if (!mounted || !isLoaded) {
-        return <div className="flex items-center gap-2 min-w-[140px] h-9" suppressHydrationWarning />;
+        return (
+            <div className="flex items-center gap-3">
+                <Skeleton className="w-[80px] h-9 rounded-xl" />
+                <Skeleton className="w-8 h-8 rounded-full" />
+            </div>
+        );
     }
 
     return (
         <>
             {!isSignedIn ? (
                 <>
-                    <SignInButton mode="modal">
-                        <button className="px-4 py-2 text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-                            Sign In
-                        </button>
-                    </SignInButton>
-                    <Link href="/sign-up" className="btn-primary text-[14px] px-5 py-2">
+                    <button onClick={onSignIn} className="px-4 py-2 text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+                        Sign In
+                    </button>
+                    <button onClick={onSignIn} className="btn-primary text-[14px] px-5 py-2">
                         Get Started
-                    </Link>
+                    </button>
                 </>
             ) : (
                 <>
-                    <Link href="/detect" className="btn-primary text-[14px] px-5 py-2 gap-1.5">
+                    <Link href="/detect" className="btn-primary text-[14px] px-5 py-2 gap-1.5 mr-2">
                         <Zap className="w-3.5 h-3.5" /> Detect
                     </Link>
-                    <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 rounded-full ring-2 ring-border" } }} />
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="flex items-center justify-center w-8 h-8 rounded-full ring-2 ring-border overflow-hidden bg-muted hover:opacity-85 transition-opacity focus:outline-none">
+                                <Avatar className="w-8 h-8">
+                                    <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || "User"} referrerPolicy="no-referrer" />
+                                    <AvatarFallback className="text-[12px] font-bold uppercase bg-muted">
+                                        {session.user?.name?.substring(0, 2) || "U"}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 mt-2 rounded-xl">
+                            <DropdownMenuLabel className="font-normal">
+                                <div className="flex flex-col space-y-1">
+                                    <p className="text-sm font-semibold leading-none">{session.user?.name}</p>
+                                    <p className="text-xs leading-none text-muted-foreground">{session.user?.email}</p>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <Link href="/history" className="flex items-center gap-2 w-full cursor-pointer">
+                                    <User className="w-4 h-4 text-muted-foreground" />
+                                    <span>Profile</span>
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href="/admin" className="flex items-center gap-2 w-full cursor-pointer">
+                                    <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
+                                    <span>Dashboard</span>
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href="/admin" className="flex items-center gap-2 w-full cursor-pointer">
+                                    <Settings className="w-4 h-4 text-muted-foreground" />
+                                    <span>Settings</span>
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href="/history" className="flex items-center gap-2 w-full cursor-pointer">
+                                    <User className="w-4 h-4 text-muted-foreground" />
+                                    <span>Account</span>
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href="/docs" className="flex items-center gap-2 w-full cursor-pointer">
+                                    <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                                    <span>Help</span>
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => signOut()} className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer">
+                                <LogOut className="w-4 h-4" />
+                                <span>Sign Out</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </>
             )}
         </>
@@ -152,9 +224,12 @@ function AuthSection() {
 }
 
 export function HeaderNav() {
-    const { isSignedIn, isLoaded } = useAuth();
+    const { data: session, status } = useSession();
+    const isLoaded = status !== "loading";
+    const isSignedIn = !!session;
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [authOpen, setAuthOpen] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const navRef = useRef<HTMLElement>(null);
 
@@ -235,7 +310,7 @@ export function HeaderNav() {
                         {/* Right side */}
                         <div className="hidden lg:flex items-center gap-2">
                             <ThemeToggle />
-                            <AuthSection />
+                            <AuthSection onSignIn={() => setAuthOpen(true)} />
                         </div>
 
                         {/* Mobile */}
@@ -272,18 +347,28 @@ export function HeaderNav() {
 
                                 {isLoaded && !isSignedIn && (
                                     <div className="flex flex-col gap-2.5 mb-6">
-                                        <SignInButton mode="modal">
-                                            <button className="w-full py-2.5 text-[14px] font-medium rounded-lg bg-muted text-foreground border border-border/50">Sign In</button>
-                                        </SignInButton>
-                                        <Link href="/sign-up" onClick={() => setMobileOpen(false)} className="w-full py-2.5 text-[14px] font-medium rounded-lg bg-foreground text-background text-center">
+                                        <button onClick={() => { setMobileOpen(false); setAuthOpen(true); }} className="w-full py-2.5 text-[14px] font-medium rounded-lg bg-muted text-foreground border border-border/50">Sign In</button>
+                                        <button onClick={() => { setMobileOpen(false); setAuthOpen(true); }} className="w-full py-2.5 text-[14px] font-medium rounded-lg bg-foreground text-background text-center">
                                             Get Started
-                                        </Link>
+                                        </button>
                                     </div>
                                 )}
                                 {isLoaded && isSignedIn && (
                                     <div className="flex items-center gap-3 mb-6 p-3 bg-muted/30 rounded-lg border border-border/50">
-                                        <UserButton appearance={{ elements: { avatarBox: "w-8 h-8 rounded-full ring-2 ring-border" } }} />
-                                        <span className="text-[13px] font-medium text-muted-foreground">Your Account</span>
+                                        <div className="w-8 h-8 rounded-full ring-2 ring-border overflow-hidden bg-muted flex items-center justify-center">
+                                            {session?.user?.image ? (
+                                                <img src={session.user.image} alt={session.user.name || "Avatar"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            ) : (
+                                                <span className="text-[12px] font-bold uppercase">{session?.user?.name?.substring(0, 2) || "U"}</span>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[13px] font-medium text-foreground truncate">{session?.user?.name}</div>
+                                            <div className="text-[11px] text-muted-foreground truncate">{session?.user?.email}</div>
+                                        </div>
+                                        <button onClick={() => { signOut(); setMobileOpen(false); }} className="text-[12px] font-medium text-destructive hover:underline">
+                                            Sign Out
+                                        </button>
                                     </div>
                                 )}
 
@@ -319,6 +404,8 @@ export function HeaderNav() {
                     </>
                 )}
             </AnimatePresence>
+
+            <AuthDialog isOpen={authOpen} onOpenChange={setAuthOpen} />
         </>
     );
 }

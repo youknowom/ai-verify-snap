@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ScanText, Users, AlertTriangle, ShieldAlert, Loader2, TrendingUp, Fingerprint, History, Eye, FileText, ArrowRight } from "lucide-react";
+import { ScanText, Users, AlertTriangle, ShieldAlert, Loader2, TrendingUp, Fingerprint, History, FileText, ArrowRight } from "lucide-react";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { detectionApi, DetectionHistoryItem } from "@/lib/api";
 
-const ease = [0.16, 1, 0.3, 1];
+const ease = [0.16, 1, 0.3, 1] as const;
 
 export default function AdminPage() {
     const [history, setHistory] = useState<DetectionHistoryItem[]>([]);
@@ -252,7 +252,8 @@ export default function AdminPage() {
                                                     borderRadius: "0.75rem",
                                                     fontSize: "13px",
                                                 }}
-                                                formatter={(value: number, name: string) => [`${value.toLocaleString()}`, name]}
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                formatter={(value: any, name: any) => [`${value?.toLocaleString() ?? 0}`, name]}
                                             />
                                         </PieChart>
                                     </ResponsiveContainer>

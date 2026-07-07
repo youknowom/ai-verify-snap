@@ -49,3 +49,13 @@ ml:
   service:
     url: http://localhost:8000
     timeout: 30  # seconds
+
+# CORS — restrict to frontend origin
+cors:
+  allowed-origins: http://localhost:3000
+
+# Stripe Configuration
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  frontend-url: ${NEXTAUTH_URL:http://localhost:3000}

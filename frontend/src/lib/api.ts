@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+if (!process.env.NEXT_PUBLIC_API_URL) {
+    console.warn("WARNING: NEXT_PUBLIC_API_URL is not set. Using localhost for development.");
+}
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const api = axios.create({
@@ -54,7 +57,14 @@ export const detectionApi = {
 
     getHistory: async (): Promise<DetectionHistoryItem[]> => {
         const response = await api.get('/detection/history');
-        return response.data;
+        const data = response.data;
+        if (Array.isArray(data)) {
+            return data;
+        }
+        if (data && Array.isArray(data.content)) {
+            return data.content;
+        }
+        return [];
     },
 
     getReport: async (id: string): Promise<DetectionHistoryItem> => {
@@ -65,11 +75,10 @@ export const detectionApi = {
     getStats: async (): Promise<{ totalScans: number; totalUsers: number; deepfakesDetected: number }> => {
         const response = await api.get('/detection/stats');
         const data = response.data;
-        // Add realistic baselines to simulate a production-scale platform
         return {
-            totalScans: (data.totalScans || 0) + 1250224,
-            totalUsers: (data.totalUsers || 0) + 42002,
-            deepfakesDetected: (data.deepfakesDetected || 0) + 854109
+            totalScans: data.totalScans || 0,
+            totalUsers: data.totalUsers || 0,
+            deepfakesDetected: data.deepfakesDetected || 0
         };
     },
 

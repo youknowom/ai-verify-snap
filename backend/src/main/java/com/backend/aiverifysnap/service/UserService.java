@@ -1,5 +1,6 @@
 package com.backend.aiverifysnap.service;
 
+import com.backend.aiverifysnap.config.EntityNotFoundException;
 import com.backend.aiverifysnap.dto.UserDto;
 import com.backend.aiverifysnap.model.Users;
 import com.backend.aiverifysnap.repository.UserRepository;
@@ -16,18 +17,24 @@ public class UserService {
     }
 
     public UserDto getUserByName(String name) {
-        Users user = userRepository.findByName(name).orElseThrow(() -> new RuntimeException("User not found!"));
+        Users user = userRepository.findByName(name)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with name: " + name));
         return convertToDto(user);
     }
 
-    public Users registerUser(Users user) {
-        Users usersaved = userRepository.save(user);
-        return usersaved;
+    public UserDto registerUser(String name, String email, String role) {
+        Users user = new Users();
+        user.setName(name);
+        user.setEmail(email);
+        user.setRole(role != null ? role : "USER");
+        Users saved = userRepository.save(user);
+        return convertToDto(saved);
     }
 
     @Transactional
     public UserDto updateUser(String name, Users user) {
-        Users existingUser = userRepository.findByName(name).orElseThrow(() -> new RuntimeException("User notfound"));
+        Users existingUser = userRepository.findByName(name)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with name: " + name));
         if ((user.getName() != null && !user.getName().isEmpty()) ||
                 (user.getEmail() != null && !user.getEmail().isEmpty()) ||
                 (user.getPasswordHash() != null && !user.getPasswordHash().isEmpty())) {
@@ -47,7 +54,7 @@ public class UserService {
     @Transactional
     public void deleteUserByName(String name) {
         if (!userRepository.findByName(name).isPresent()) {
-            throw new RuntimeException("User not found!");
+            throw new EntityNotFoundException("User not found with name: " + name);
         }
         userRepository.deleteByName(name);
     }
@@ -66,6 +73,32 @@ public class UserService {
             user.setEmail(email);
         Users saved = userRepository.save(user);
         return convertToDto(saved);
+    }
+
+    @Transactional
+    public void upgradeUserToPro(String userIdOrClerkId) {
+        Users user = null;
+        try {
+            Long id = Long.parseLong(userIdOrClerkId);
+            user = userRepository.findById(id).orElse(null);
+        } catch (NumberFormatException e) {
+            // Not a Long, fallback to clerkId lookup
+        }
+        
+        if (user == null) {
+            user = userRepository.findByClerkId(userIdOrClerkId).orElse(null);
+        }
+        
+        if (user == null) {
+            // Auto-create user if they don't exist yet (e.g. sync was bypassed or offline)
+            user = new Users();
+            user.setClerkId(userIdOrClerkId);
+            user.setName("Sandbox Pro User");
+            user.setEmail("sandbox-pro-user@example.com");
+        }
+        
+        user.setRole("PRO");
+        userRepository.save(user);
     }
 
     private UserDto convertToDto(Users user) {

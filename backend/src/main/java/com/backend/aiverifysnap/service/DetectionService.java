@@ -1,5 +1,6 @@
 package com.backend.aiverifysnap.service;
 
+import com.backend.aiverifysnap.config.EntityNotFoundException;
 import com.backend.aiverifysnap.model.DetectionHistory;
 import com.backend.aiverifysnap.model.Users;
 import com.backend.aiverifysnap.repository.DetectionRepository;
@@ -26,6 +27,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 public class DetectionService {
@@ -217,9 +221,13 @@ public class DetectionService {
         return detectionRepository.findAllByOrderByScanTimestampDesc();
     }
 
+    public Page<DetectionHistory> getAllDetections(Pageable pageable) {
+        return detectionRepository.findAllByOrderByScanTimestampDesc(pageable);
+    }
+
     public DetectionHistory getDetectionById(Long scanId) {
         return detectionRepository.findById(scanId)
-                .orElseThrow(() -> new RuntimeException("Detection not found with id: " + scanId));
+                .orElseThrow(() -> new EntityNotFoundException("Detection not found with id: " + scanId));
     }
 
     private String toJson(Map<String, Object> map) {

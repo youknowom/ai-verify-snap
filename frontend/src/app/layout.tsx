@@ -2,13 +2,45 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ClerkProvider } from "@clerk/nextjs";
+import { NextAuthProvider } from "@/providers/NextAuthProvider";
 import { HeaderNav } from "@/components/shared/HeaderNav";
 import Link from "next/link";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 
 export const metadata: Metadata = {
-  title: "AIVerifySnap | Deepfake Verification Platform",
-  description: "AI-Powered Deepfake Image Verification & Victim Protection System",
+  metadataBase: new URL("https://aiverifysnap.com"), // Base URL for the application
+  title: {
+    default: "AI Verify Snap | AI Image Detector & Deepfake Scanner",
+    template: "%s | AI Verify Snap",
+  },
+  description: "Protect your digital identity with AI Verify Snap by Omkar Bagul. Industry-leading AI generated image detector, deepfake scanner, and forensic photo authenticity checker.",
+  keywords: ["AI image detector", "Deepfake detector", "Image forensic analysis", "AI image verification", "Detect AI generated photos", "Omkar Bagul", "youknowom"],
+  authors: [{ name: "Omkar Bagul", url: "https://github.com/youknowom" }],
+  creator: "Omkar Bagul",
+  publisher: "AI Verify Snap",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    title: "AI Verify Snap | Deepfake Detection Platform",
+    description: "Detect AI-generated images and protect your digital identity with advanced forensic analysis.",
+    url: "https://aiverifysnap.com",
+    siteName: "AI Verify Snap",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI Verify Snap | Deepfake Detection Platform",
+    description: "Detect AI-generated images and protect your digital identity with advanced forensic analysis.",
+    creator: "@youknowom",
+  },
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -17,22 +49,38 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <NextAuthProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-          <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "Organization",
+                "name": "AI Verify Snap",
+                "url": "https://aiverifysnap.com",
+                "founder": {
+                  "@type": "Person",
+                  "name": "Omkar Bagul"
+                },
+                "sameAs": [
+                  "https://twitter.com/youknowom",
+                  "https://github.com/youknowom"
+                ]
+              })
+            }}
+          />
         </head>
-        <body className="antialiased min-h-screen flex flex-col bg-background text-foreground" suppressHydrationWarning>
+        <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased min-h-screen flex flex-col bg-background text-foreground`} suppressHydrationWarning>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {/* Announcement Bar */}
-            <div className="w-full py-2.5 flex items-center justify-center text-[13px] font-medium gap-2.5 px-4 relative z-50"
+            {/* <div className="w-full py-2.5 flex items-center justify-center text-[13px] font-medium gap-2.5 px-4 relative z-50"
               style={{ background: "linear-gradient(135deg, #e17b27ff 0%, #ecac2cff 50%, #fe7200ff 100%)", color: "white" }}>
               <span className="px-2 py-0.5 rounded text-[11px] font-bold border border-white/25 bg-white/15">BETA</span>
               <span>Forensic Engine is live. Try it now</span>
               <span className="text-base leading-none">&rarr;</span>
-            </div>
+            </div> */}
 
             <HeaderNav />
 
@@ -96,6 +144,6 @@ export default function RootLayout({
           </ThemeProvider>
         </body>
       </html>
-    </ClerkProvider>
+    </NextAuthProvider>
   );
 }

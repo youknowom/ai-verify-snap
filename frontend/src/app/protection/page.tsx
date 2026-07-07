@@ -7,6 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import axios from "axios";
 
+if (!process.env.NEXT_PUBLIC_ML_URL) {
+    console.warn("WARNING: NEXT_PUBLIC_ML_URL is not set. Using localhost for development.");
+}
 const ML_SERVICE_URL = process.env.NEXT_PUBLIC_ML_URL || "http://localhost:8000";
 
 interface VisualMatch {
@@ -74,7 +77,7 @@ export default function ProtectionPage() {
                     formData,
                     {
                         headers: { "Content-Type": "multipart/form-data" },
-                        timeout: 60000,
+                        timeout: 180000, // Increased to 3 minutes for slower reverse searches
                     }
                 ),
                 minDelay
@@ -321,7 +324,7 @@ export default function ProtectionPage() {
                                                     </p>
                                                     <div className="flex items-center gap-2">
                                                         {match.source_icon && (
-                                                            <img src={match.source_icon} alt="" className="w-4 h-4 rounded-sm" />
+                                                            <img src={match.source_icon} alt={`${match.source || 'Match source'} icon`} className="w-4 h-4 rounded-sm" />
                                                         )}
                                                         <span className="text-[12px] text-muted-foreground truncate">
                                                             {match.source || getDomain(match.link)}

@@ -87,7 +87,7 @@
   /* Typography hierarchy — Sarvam-inspired restraint */
   h1 {
     @apply font-serif;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.04em;
     line-height: 1.05;
   }
   h2 {
@@ -199,5 +199,5 @@
 
 /* Subtle divider */
 .divider-subtle {
-  border-top: 1px solid hsl(var(--border) / 0.4);
+  border-top: 1px solid hsl(var(--border) / 0.3);
 }

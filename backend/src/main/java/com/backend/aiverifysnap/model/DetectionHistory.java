@@ -6,7 +6,9 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "detection_history")
+@Table(name = "detection_history", indexes = {
+    @Index(name = "idx_detection_timestamp", columnList = "scan_timestamp")
+})
 public class DetectionHistory {
 
     @Id
@@ -30,7 +32,7 @@ public class DetectionHistory {
     @Column(name = "scan_timestamp")
     private LocalDateTime scanTimestamp;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Users user;
