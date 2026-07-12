@@ -22,3 +22,11 @@ coverage.xml
 *.pt.bak
 Dockerfile
 .dockerignore
+# Training data and scripts not needed at runtime
+CASIA2/
+data/
+train.py
+download_dataset.py
+prepare_data.py
+test_endpoint.py
+inspect_checkpoint.py

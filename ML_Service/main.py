@@ -2,6 +2,7 @@ import io
 import os
 import base64
 import time
+from contextlib import asynccontextmanager
 import logging
 import psutil
 from pathlib import Path
@@ -27,10 +28,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("AIVerifySnapML")
 
+# Lifespan handler — loads the model once at startup
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    load_model()
+    yield
+
 app = FastAPI(
     title="AIVerifySnap AI Service Layer",
     description="Deepfake detection microservice using dual-stream ResNet18 + ELA CNN fusion.",
     version="5.0.0",
+    lifespan=lifespan,
 )
 
 # Global Exception Handler
@@ -133,12 +141,15 @@ def load_model() -> None:
                 
             state_dict = ckpt["model_state_dict"]
 
-            # Try the V1 architecture first (matches the trained checkpoint),
-            # then fall back to the latest architecture.
+            # Try the latest architecture first (matches the trained checkpoint),
+            # then fall back to V1 for older checkpoints.
+            # pretrained=False avoids downloading ImageNet weights that will be
+            # immediately overwritten by our checkpoint — this also eliminates
+            # the network+permission dependency inside Docker.
             model = None
-            for model_cls, name in [(AIVerifySnapModelV1, "V1"), (AIVerifySnapModel, "latest")]:
+            for model_cls, name in [(AIVerifySnapModel, "latest"), (AIVerifySnapModelV1, "V1")]:
                 try:
-                    candidate = model_cls(freeze_backbone=True)
+                    candidate = model_cls(freeze_backbone=True, pretrained=False)
                     candidate.load_state_dict(state_dict)
                     candidate.to(DEVICE)
                     candidate.eval()
@@ -173,9 +184,6 @@ def load_model() -> None:
         logger.info(f"HuggingFace fallback model loaded successfully on device={DEVICE}.")
     except Exception as e:
         logger.error(f"FATAL - Failed to load fallback model: {e}", exc_info=True)
-
-
-load_model()
 
 
 # ---------------------------------------------------------------------------
@@ -320,16 +328,15 @@ def _upload_temp_image(image_bytes: bytes, filename: str) -> str:
 
 def _reverse_image_search(image_url: str) -> dict:
     """Call SerpAPI Google Lens with the given image URL."""
-    from serpapi import GoogleSearch
+    import serpapi
 
     params = {
         "engine": "google_lens",
         "url": image_url,
-        "api_key": settings.SERP_API_KEY,
     }
 
-    search = GoogleSearch(params)
-    results = search.get_dict()
+    client = serpapi.Client(api_key=settings.SERP_API_KEY)
+    results = client.search(params).as_dict()
 
     # Extract visual matches
     visual_matches = []
